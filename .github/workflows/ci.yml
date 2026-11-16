@@ -1,0 +1,28 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  validator-on-real-files:
+    # Runs the Python validator over real community .tendies files (no Apple toolchain needed).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir real && cd real
+          python3 - <<'PY'
+          import json, urllib.request
+          base = "https://raw.githubusercontent.com/CAPlayground/wallpapers/refs/heads/main/"
+          idx = json.load(urllib.request.urlopen(base + "wallpapers.json"))
+          for w in idx["wallpapers"][::25]:
+              urllib.request.urlretrieve(base + urllib.request.quote(w["file"]), w["file"].split("/")[-1])
+          PY
+          python3 -I ../Tools/validate_tendies.py *.tendies
+  build-and-test:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate
+      - name: Build & test (simulator)
+        run: |
+          xcodebuild test -scheme TendieStudio -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -resultBundlePath build/result CODE_SIGNING_ALLOWED=NO | tail -50
